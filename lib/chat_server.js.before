@@ -1,0 +1,122 @@
+
+var socketio = require('socket.io');
+var io;
+var redisAdapter = require('socket.io-redis');
+
+var userNames = {};
+var classRooms = {};
+var pcNames={};
+var isTeacher = {};
+
+exports.listen = function(server){
+    io = socketio.listen(server);
+    io.adapter(redisAdapter({ host: 'localhost', port: 6379 }));
+    //io.set('log level', 1);
+    console.log("socket.io connect event");
+    io.on('connection',function(socket){
+        console.log("[event-----connection]");
+        userLogin(socket,userNames,pcNames,isTeacher);
+        createClassroom(socket,classRooms,userNames);
+        getInClassroom(socket,classRooms,userNames);
+        getOutClassroom(socket,classRooms,userNames,isTeacher);
+        handleMessageBroadcast(socket,classRooms);
+
+    });//io.sockets.on()
+
+}//end
+
+
+//////////
+// 1 ---服务器端处理逻辑
+//////////
+
+//1.1        login by teacher / student
+function userLogin(socket,userNames,pcNames,isTeacher){
+    socket.on('teacher_login',function(name){
+        console.log("[event-----teacher_login]");
+        console.log("[socket.id:]"+socket.id);
+        userNames[socket.id] = name;
+        isTeacher[socket.id] = true;
+    });
+        socket.on('student_login',function(name){
+            console.log("[event-----student_login]");
+            console.log("[socket.id:]"+socket.id);
+            userNames[socket.id] = name;
+            isTeacher[socket.id] = false;
+    });
+        socket.on('pc_login',function(name){
+            console.log("[event-----student_login]");
+            console.log("[socket.id:]"+socket.id);
+            pcNames[socket.id] = name;
+    });
+}//end
+
+//1.2        create and getin classroom by teacher
+function createClassroom(socket,classRooms,userNames){
+    socket.on('create_classroom',function(roomName){
+        console.log("[event-----create_classroom]:"+roomName);
+        console.log("[socket.id:]"+socket.id);
+        classRooms[socket.id] = roomName;
+        console.log(" classRooms[socket.id]:"+ classRooms[socket.id]);
+        socket.join(roomName);
+
+        socket.broadcast.to(roomName).emit('send-message','['+userNames[socket.id]+']进入教室');
+    });
+}//end
+
+
+//1.3        get in classroom by student
+function getInClassroom(socket,classRooms,userNames){
+    socket.on('getin_classroom',function(roomName){
+        console.log("[event-----getin_classroom]:"+roomName);
+        console.log("[socket.id:]"+socket.id);
+        classRooms[socket.id] = roomName;
+        socket.join(roomName);
+
+        socket.to(roomName).emit('send-message','['+userNames[socket.id]+']进入教室');
+    });
+}//end
+
+//1.4        destory/get out classroom by teacher/student (android app finish ClassroomActivity --> trigger this evevt)
+function getOutClassroom(socket,classRooms,userNames,isTeacher){
+    socket.on('disconnect',function(){
+        console.log("[event-----disconnect]");
+        console.log("[socket.id:]"+socket.id);
+        if(isTeacher[socket.id]){//destory classroom by teacher
+            console.log("[event-----disconnect by teacher]");
+            socket.to(classRooms[socket.id]).emit('dismiss');
+
+            io.in(classRooms[socket.id]).clients((err, clients) => {
+                 //console.log(clients); // an array containing socket ids in 'room3'
+                 for(var index in clients){
+                            delete userNames[index];
+                            delete classRooms[index];
+                            delete isTeacher[index];
+                 }
+            });
+
+
+        }else{//just get out classroom by student
+            console.log("[event-----disconnect by student]");
+            socket.to(classRooms[socket.id]).emit('send-message','['+userNames[socket.id]+']离开教室');
+            delete userNames[socket.id];
+            delete classRooms[socket.id];
+            delete isTeacher[socket.id];
+        }//else
+
+    });//socket.on
+}//end
+
+
+//1.5        handle message broadcast
+function handleMessageBroadcast(socket,classRooms){
+    socket.on('send-message',function(data){
+        console.log("[event-----send-message]");
+        console.log("[socket.id:]"+socket.id);
+        console.log(" classRooms[socket.id]:"+ classRooms[socket.id]);
+        //socket.broadcast.to(classRooms[socket.id]).emit('message',data);
+        console.log("message to room:"+classRooms[socket.id]);
+        socket.to(classRooms[socket.id]).emit('send-message',data);
+    });
+}//end
+
