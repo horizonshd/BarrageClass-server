@@ -285,7 +285,7 @@ router.post('/teacher/add-question-byhand', function(req, res, next) {
                     res.setHeader('Content-Type','application/json');
                     res.json({status:'failed'});
                     return next(err);
-                }s
+                }
              res.setHeader('Content-Type','application/json');
             res.json({status:'success'});
     });
