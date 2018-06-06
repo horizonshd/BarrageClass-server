@@ -473,4 +473,25 @@ router.post('/teacher/course-out',function(req,res,next){
 
 
 
+// ===== request for btnIn  from teacher =====
+router.post('/teacher/question-update',function(req,res,next){
+    var questionid = req.body.questionid;
+    questionid = mongoose.Types.ObjectId(questionid);
+
+    var description  = req.body.description;
+    var a = req.body.a;
+    var b = req.body.b;
+    var c = req.body.c;
+    var d = req.body.d;
+
+
+    Question.update({'_id':questionid},{$set:{'description':description,'optiona':a,'optionb':b,'optionc':c,'optiond':d}},function(){
+        res.setHeader('Content-Type','application/json');
+        res.json({status:'success'});
+    });//course.update
+
+});//end
+
+
+
 module.exports = router;
