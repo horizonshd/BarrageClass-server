@@ -7,8 +7,7 @@ var schema = new mongoose.Schema({
     paperid:ObjectId,
     courseid:ObjectId,
     answerlist:[String],
-    correctlist:[Number],
-    score:Number
+    correctlist:[String]
 });
 
 module.exports = mongoose.model('PaperSubmitted',schema);
